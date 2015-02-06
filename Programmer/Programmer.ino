@@ -75,7 +75,7 @@
  D07 (RXD)	12 P0.6		10 P0.4		15 P1.1
  D08 (PROG)	 5 PROG		 6 PROG		10 PROG
  D09 (RESET)	13 RESET	19 RESET	30 RESET
- D10 (FCSN,TXD)	11 P0.5		15 P1.1		22 P2.0
+ D10 (FCSN,TXD)	11 P0.5		15 P0.3  	22 P2.0
  D11 (FMOSI)	 9 P0.3		13 P0.7		19 P1.5
  D12 (FMISO)	10 P0.4		14 P1.0		20 P1.6
  D13 (FSCK)	 8 P0.2		11 P0.5 	16 P1.2
@@ -89,7 +89,7 @@
 // Specify pins in use
 #define PROG      8   // nRF24LE1 Program
 #define _RESET_   9   // nRF24LE1 Reset
-#define _FCSN_    10  // nRF24LE1 Chip select
+#define _FCSN_    7  // nRF24LE1 Chip select
 
 // nRF24LE1 Serial port connections.  These will differ with the different chip
 // packages
@@ -97,7 +97,7 @@
 #define nRF24LE1_RXD    7   // nRF24LE1 UART/RXD
 
 SoftwareSerial nRF24LE1Serial(nRF24LE1_TXD, nRF24LE1_RXD);
-#define NRF24LE1_BAUD  19200
+#define NRF24LE1_BAUD  38400
 
 #define FLASH_TRIGGER   0x01    // Magic character to trigger uploading of flash
 
@@ -147,6 +147,7 @@ SoftwareSerial nRF24LE1Serial(nRF24LE1_TXD, nRF24LE1_RXD);
 #define HEX_REC_EOF                    -5
 
 char inputRecord[521]; // Buffer for line of encoded hex data
+long dataTotalSize = 0;
 
 typedef struct hexRecordStruct {
   byte   rec_data[256];
@@ -193,6 +194,8 @@ int ParseHexRecord(struct hexRecordStruct * record, char * inputRecord, int inpu
   }
 
   record->rec_data_len = ConvertHexASCIIByteToByte(inputRecord[1], inputRecord[2]);
+  dataTotalSize += record->rec_data_len;
+  Serial.println(record->rec_data_len);
   record->rec_address = word(ConvertHexASCIIByteToByte(inputRecord[3], inputRecord[4]), ConvertHexASCIIByteToByte(inputRecord[5], inputRecord[6]));
   record->rec_type = ConvertHexASCIIByteToByte(inputRecord[7], inputRecord[8]);
   record->rec_checksum = ConvertHexASCIIByteToByte(inputRecord[9 + (record->rec_data_len * 2)], inputRecord[9 + (record->rec_data_len * 2) + 1]);
@@ -396,7 +399,8 @@ void flash() {
     goto done;
   }
 
-
+  //reset total bytes written counter
+  dataTotalSize = 0;
   while(true){
     // Prompt perl script for data
     Serial.println("OK");
@@ -445,7 +449,7 @@ void flash() {
     while (fsr & FSR_RDYN);
 
     // Program flash
-    Serial.println("WRITING...");
+    //Serial.println("WRITING...");
     digitalWrite(_FCSN_, LOW);
     SPI.transfer(PROGRAM);
     SPI.transfer(highByte(hexRecord.rec_address));
@@ -468,7 +472,7 @@ void flash() {
     while (fsr & FSR_RDYN);
 
     // Read back flash to verify
-    Serial.println("VERIFYING...");
+    //Serial.println("VERIFYING...");
     digitalWrite(_FCSN_, LOW);
     SPI.transfer(READ);
     SPI.transfer(highByte(hexRecord.rec_address));
@@ -499,14 +503,14 @@ done:
 
   SPI.end();
 
+  Serial.print(dataTotalSize);Serial.println(" bytes written");
   Serial.println("DONE");
-
 }
 
 
 void setup() {
   // start serial port:
-  Serial.begin(57600);
+  Serial.begin(38400);
   Serial.setTimeout(30000);
 
   // Reset nRF24LE1
@@ -547,8 +551,3 @@ void loop() {
     }
   }
 }
-
-
-
-
-
