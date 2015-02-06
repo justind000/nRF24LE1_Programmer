@@ -16,6 +16,9 @@
 #      is left as an exercise for the reader. (Hint: Hack the hex file to write in those addresses.
 #      You will also need to set an address offset for your code.)
 
+# Requires:
+#	ppm install Win32-SerialPort
+
 #  Copyright (c) 2014 Dean Cording
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,6 +41,16 @@
 
 use strict;
 use warnings;
+use Win32::SerialPort;
+
+my $serial = Win32::SerialPort->new($ARGV[1]) or die "Cannot open $ARGV[1]: $!";
+$serial->baudrate(38400);
+$serial->databits(8);
+$serial->parity("none");
+$serial->stopbits(1);
+$serial->are_match("\n", "\r");
+$serial->write_settings;
+$serial->lookclear;
 
 my $nupp=0xff;
 my $rdismb=0xff;
@@ -62,52 +75,54 @@ if (defined($ARGV[3])) {
   }
 }
 
-
 if ( (@ARGV < 2) || (!defined($nupp)) || (!defined($rdismb))) {
   print "Usage: $0 <Hex.file> <Arduino Serial Port> [NUPP] [RDISMB]\n";
   exit;
 }
 
-# Serial port settings to suit Arduino
-system "stty -F $ARGV[1] 10:0:18b1:0:3:1c:7f:15:4:0:1:0:11:13:1a:0:12:f:17:16:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0";
-
-
 open(HEX, "<", $ARGV[0]) or die "Cannot open $ARGV[0]: $!";
-open(SERIAL, "+<", $ARGV[1]) or die "Cannot open $ARGV[1]: $!";
 
 #Wait for Arduino reset
 sleep(3);
 
 #Send the flash trigger character
-print SERIAL "\x01";
+$serial->write("\x01");
 
-do {
-  while (!defined($_ = <SERIAL>)) {}
-  print;
-  chomp;
-} until /READY/;
+my $data = "";
+$serial->lookclear;           # empty buffer
 
-print SERIAL "GO $nupp $rdismb\n";
-
-while (1) {
-
-  while (!defined($_ = <SERIAL>)) {}
-
-  print;
-  chomp;
-
-  last if /READY/;
-
-  last if /DONE/;
-
-  if (/OK/) {
-    $_ = <HEX>;
-    print;
-    print SERIAL;
+while(1){
+  $data = $serial->lookfor();
+  if ($data)
+  {
+	 print "$data\n";
   }
+  if ($data eq "READY") { last; }
+  if ($data eq "TIMEOUT") { die; }
+}
+
+$serial->write("GO $nupp $rdismb\n");
+
+while(1){
+  $data = $serial->lookfor();
+  if ($data)
+  {
+	#print "$data\n";
+  }
+
+  if ($data =~ /written/) { 
+	print "$data\n";
+	}
+  
+  if ($data eq "DONE") { last; }
+  if ($data eq "READY") { last; }
+  if ($data eq "TIMEOUT") { die; }
+  if ($data eq "OK") {
+	$_ = <HEX>;
+    #print;
+    $serial->write($_);
+	}
 }
 
 close(HEX);
-close(SERIAL);
-
-
+$serial->close;
