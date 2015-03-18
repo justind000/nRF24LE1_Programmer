@@ -89,12 +89,12 @@
 // Specify pins in use
 #define PROG      8   // nRF24LE1 Program
 #define _RESET_   9   // nRF24LE1 Reset
-#define _FCSN_    7  // nRF24LE1 Chip select
+#define _FCSN_    10  // nRF24LE1 Chip select
 
 // nRF24LE1 Serial port connections.  These will differ with the different chip
 // packages
-#define nRF24LE1_TXD   10   // nRF24LE1 UART/TXD
-#define nRF24LE1_RXD    7   // nRF24LE1 UART/RXD
+#define nRF24LE1_TXD   7   // nRF24LE1 UART/TXD
+#define nRF24LE1_RXD    10   // nRF24LE1 UART/RXD
 
 SoftwareSerial nRF24LE1Serial(nRF24LE1_TXD, nRF24LE1_RXD);
 #define NRF24LE1_BAUD  38400
@@ -463,7 +463,7 @@ void flash() {
 
     // Wait for flash to write
     do {
-      delay(hexRecord.rec_data_len);  // Wait 1 millisecond per byte written
+      //delay(hexRecord.rec_data_len / 900);  // Wait 1 millisecond per byte written
       digitalWrite(_FCSN_, LOW);
       SPI.transfer(RDSR);
       fsr = SPI.transfer(0x00);
@@ -510,7 +510,7 @@ done:
 
 void setup() {
   // start serial port:
-  Serial.begin(38400);
+  Serial.begin(115200);
   Serial.setTimeout(30000);
 
   // Reset nRF24LE1
@@ -551,3 +551,7 @@ void loop() {
     }
   }
 }
+
+
+
+
